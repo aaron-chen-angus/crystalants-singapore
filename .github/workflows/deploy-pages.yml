@@ -1,1 +1,50 @@
+name: Publish Crystal Ants
 
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download repository files
+        uses: actions/checkout@v4
+
+      - name: Reassemble index.wasm
+        shell: bash
+        run: |
+          cat index.wasm.part00 index.wasm.part01 > index.wasm
+          test "$(stat -c%s index.wasm)" -eq 39514754
+
+      - name: Prepare Pages folder
+        shell: bash
+        run: |
+          mkdir -p site
+          cp index.html index.js index.wasm index.pck site/
+          cp -f index.png index.icon.png index.apple-touch-icon.png site/ 2>/dev/null || true
+          cp -f index.audio.worklet.js index.audio.position.worklet.js site/ 2>/dev/null || true
+          cp -f open-source-licenses.html THIRD_PARTY_NOTICES.txt site/ 2>/dev/null || true
+          cp -R share site/ 2>/dev/null || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
